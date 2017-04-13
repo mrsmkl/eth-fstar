@@ -1,0 +1,41 @@
+<!doctype html>
+
+<title>Solidity to FStar translator</title>
+
+<script src="soljson.js"></script>
+<script>
+    var compileJSON = cwrap('compileJSON', 'string', ['string', 'number']);
+</script>
+<script src="tofstar.js"></script>
+
+<textarea id="input" cols=100 rows=10>pragma solidity ^0.4.9;
+contract Token {
+  mapping (address =&gt; uint) balance;
+    function Token(uint n) {
+        balance[msg.sender] = n;
+    }
+    function send(address a, uint amount) {
+        if (balance[msg.sender] &lt; amount) throw;
+        balance[msg.sender] -= amount;
+        balance[a] += amount;
+    } 
+}
+</textarea>
+<p>
+<button onclick="compile();">Compile</button>
+<p>
+<textarea id="output" cols=100 rows=10>
+    Output will be here
+</textarea>
+
+
+<script>
+    
+    function compile() {
+        var str = document.querySelector("#input").value
+        var dta = JSON.parse(compileJSON(str))
+        // console.log(JSON.stringify(dta.sources[''].AST))
+        document.querySelector("#output").value = convertUnit(dta.sources[''].AST)
+    }
+    
+</script>
