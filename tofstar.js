@@ -1,9 +1,14 @@
 
-function get_file(yourUrl){
+var get_file = function (yourUrl){
     var req = new XMLHttpRequest(); // a new request
     req.open("GET",yourUrl,false);
     req.send(null);
     return req.responseText;          
+}
+
+if (typeof exports != "undefined") {
+    var fs = require("fs")
+    get_file = x => fs.readFileSync(x)
 }
 
 var preamble = get_file("Preamble.fst")
@@ -14,6 +19,7 @@ var type_table = {
     uint: "UInt256.t",
     uint256: "UInt256.t",
     address: "UInt160.t",
+    bool: "bool"
 }
 
 function doConvert(part) {
@@ -48,17 +54,50 @@ convert.Block = function (b) {
 }
 
 convert.Return = function (a) {
-    return "ret := "  + doConvert(a.children[0]) + "; raise SolidityReturn;"
+    return "ret := Some("  + doConvert(a.children[0]) + "); raise SolidityReturn;"
 }
 
 convert.Literal = function (a) {
+    console.log("Literal " + a.attributes.type)
+    console.log(a)
+    if (a.attributes.type2 == "address") {
+        return "address_" + a.attributes.value
+    }
+    if (a.attributes.type2 == "uint256") {
+        return "uint256_" + a.attributes.value
+    }
     if (a.attributes.type.match(/int_const/)) {
-        return a.attributes.value
+        return "uint256_" + a.attributes.value
     }
     if (a.attributes.type == "bool") {
         return a.attributes.value
     }
+}
+
+var lits = {}
+
+function prepareLiteral(a) {
     console.log("Literal " + a.attributes.type)
+    console.log(a)
+    var name, type
+    if (a.attributes.type2 == "address") {
+        name = "address_" +  a.attributes.value
+        type = "UInt160.uint_to_t"
+    }
+    else if (a.attributes.type2 == "uint256") {
+        name = "uint256_" +  a.attributes.value
+        type = "UInt256.uint_to_t"
+    }
+    else if (a.attributes.type.match(/int_const/)) {
+        name = "uint256_" +  a.attributes.value
+        type = "UInt256.uint_to_t"
+    }
+    if (a.attributes.type == "bool") {
+        return ""
+    }
+    if (lits[name]) return ""
+    lits[name] = true
+    return "let " + name + " = " + type + " (" + a.attributes.value + ")"
 }
 
 convert.Throw = function () {
@@ -70,8 +109,8 @@ convert.Throw = function () {
 convert.ForStatement = function (a) {
     var str = ""
     str += doConvert(a.children[0])
-    str += "let rec loop_"+a.id+" () =\n"
-    str += "if " + doConvert(a.children[1]) + "then () else (\n"
+    str += "let rec loop_"+a.id+" () : ML unit =\n"
+    str += "if not (" + doConvert(a.children[1]) + ") then () else (\n"
     str += doConvert(a.children[3])
     str += doConvert(a.children[2])
     str += "loop_" + a.id + " ()) in loop_"+a.id+"();"
@@ -112,10 +151,10 @@ var op_table = {
     "uint +": "UInt256.add_mod",
     "uint -": "UInt256.sub_mod",
     "uint <": "UInt256.lt",
-    "bool &&": "(&&)",
-    "bool ||": "(||)",
-    "uint256 !=": "(<>)",
-    "address !=": "(<>)",
+    "bool &&": "bool_and",
+    "bool ||": "bool_or",
+    "uint256 !=": "op_disEquality",
+    "address !=": "op_disEquality",
 }
 
 function get_op(b) {
@@ -171,10 +210,6 @@ function convertParams(lst) {
     return lst.children.map(a => a.attributes.name).join(" ")
 }
 
-convert.VariableDeclarationStatement = function (a) {
-    return "let " + a.children[0].attributes.name + " = ref (" + doConvert(a.children[1]) + ") in\n"
-}
-
 convert.FunctionCall = function (a) {
     if (a.children[0].attributes.member_name == "transfer") {
         return "()"
@@ -185,7 +220,7 @@ convert.FunctionCall = function (a) {
         for (var i = 1; i < a.children.length; i++) {
             str += doConvert(a.children[i])
         }
-        str += " in (s := st; match ret with Some x -> x | None -> assert False)"
+        str += " in (s := st; match ret with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn)"
         return str
     }
 }
@@ -199,6 +234,22 @@ function flatten(lst) {
 function getChildren(a) {
     if (!a.children) return []
     return a.children.concat(flatten(a.children.map(b => getChildren(b))))
+}
+
+function checkTypes(a) {
+    var a1 = a.children[0]
+    var a2 = a.children[1]
+    console.log(a)
+    if (a1.attributes.type.match(/int_const/)) {
+        a1.attributes.type2 = a2.attributes.type
+    }
+    if (a2.attributes.type.match(/int_const/)) {
+        a2.attributes.type2 = a1.attributes.type
+    }
+}
+
+convert.VariableDeclarationStatement = function (a) {
+    return "let " + a.children[0].attributes.name + " = alloc (" + doConvert(a.children[1]) + ") in\n"
 }
 
 convert.FunctionDefinition = function (a) {
@@ -228,12 +279,15 @@ function convertVar(v) {
 }
 
 convert.ContractDefinition = function (c) {
+    getChildren(c).filter(a => a.name == "BinaryOperation" || a.name == "Assignment").forEach(checkTypes)
     var str = ""
     str += "module " + c.attributes.name + "\n" + preamble
     // find variables
     var vars = c.children.filter(a => a.name == "VariableDeclaration")
     str += "\n\n\n(* Storage state *)\n"
     str += "noeq type state = {\n" + vars.map(convertVar).join("\n") + "\n}\n"
+    // literals
+    getChildren(c).filter(a => a.name == "Literal").forEach(l => str += prepareLiteral(l) + "\n")
     // find methods
     var lst = c.children.filter(a => a.name == "FunctionDefinition")
     str += "\n\n\n(* Contract methods *)\n"
@@ -246,3 +300,6 @@ function convertUnit(unit) {
     var lst = unit.children.map(doConvert)
     return lst.join("\n(******************)\n")
 }
+
+if (typeof exports != "undefined") exports.convertUnit = convertUnit
+

@@ -4,7 +4,8 @@ open FStar.UInt256
 open FStar.Heap
 
 type msg = {
-sender : UInt160.t;
+  sender : UInt160.t;
+  value: UInt256.t;
 }
 
 val set : #key:eqtype -> #vl:Type -> (key -> vl) -> key -> vl -> (key -> vl)
@@ -15,11 +16,18 @@ let get #key #vl f ind = f ind
 
 exception SolidityThrow
 exception SolidityReturn
+exception SolidityBadReturn
 
 val do_call : #state:Type -> #ret:Type -> (state -> ML (option ret * state)) -> state -> ML (option ret * state)
 let do_call #state #ret meth st =
   try meth st
   with SolidityThrow -> (None, st)
+
+val bool_and : bool -> bool -> Tot bool
+let bool_and a b = a && b
+
+val bool_or : bool -> bool -> Tot bool
+let bool_or a b = a || b
 
 (*
 

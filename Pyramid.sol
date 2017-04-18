@@ -9,20 +9,6 @@ contract Pyramid {
     function calc(uint level) returns (uint) {
         return 10;
     }
-    function join() payable {
-        if (msg.value < 1 ether) throw;
-        if (joined[msg.sender]) throw;
-        if (invite[msg.sender] != 0 && invites_left[invite[msg.sender]] > 0) {
-            address par = invite[msg.sender];
-            parent[msg.sender] = par;
-            joined[msg.sender] = true;
-            invites_left[msg.sender] = 3;
-            for (var i = 0; i < 10; i += 1) {
-                balance[par] += calc(i);
-                par = parent[par];
-            }
-        }
-    }
     function doInvite(address addr) {
         if (invite[addr] != 0) throw;
         invite[addr] = msg.sender;
@@ -37,5 +23,22 @@ contract Pyramid {
         uint sum = balance[msg.sender];
         balance[msg.sender] = 0;
         msg.sender.transfer(sum);
+    }
+    function join() payable {
+        if (msg.value < 1 ether) throw;
+        if (joined[msg.sender]) throw;
+        if (invite[msg.sender] != 0 && invites_left[invite[msg.sender]] > 0) {
+            address par = invite[msg.sender];
+            parent[msg.sender] = par;
+            joined[msg.sender] = true;
+            invites_left[msg.sender] = 3;
+            for (uint256 i = 0; i < 10; i += 1) {
+                balance[par] += calc(i);
+                par = parent[par];
+            }
+            /* uint256 i = 0;
+            balance[par] += calc(i); par = parent[par]; i += 1;
+            balance[par] += calc(i); par = parent[par]; i += 1; */
+        }
     }
 }
