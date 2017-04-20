@@ -142,6 +142,7 @@ convert.Identifier = a => {
     // console.log(a);
     if (a.attributes.scope == "local") return "!" + a.attributes.value
     else if (a.attributes.scope == "param") return a.attributes.value
+    else if (a.attributes.value == "now") return "msg.now"
     return "(!s)." + a.attributes.value 
 }
 
@@ -167,8 +168,8 @@ var op_table = {
     "uint256 -": "UInt256.sub_mod",
     "uint256 <": "UInt256.lt",
     "uint256 >": "UInt256.gt",
-    "uint256 <=": "UInt256.le",
-    "uint256 >=": "UInt256.ge",
+    "uint256 <=": "UInt256.lte",
+    "uint256 >=": "UInt256.gte",
     
     "uint8 +=": "UInt8.add_mod",
     "uint8 -=": "UInt8.sub_mod",
@@ -282,12 +283,12 @@ convert.FunctionCall = function (a) {
     if (a.children[0].name == "Identifier") {
         console.log(a)
         var str = ""
-        str += "let (ret,st) = method_" + a.children[0].attributes.value + " msg !s\n"
+        str += "(let (ret__,st__) = method_" + a.children[0].attributes.value + " msg !s\n"
         if (a.children.length == 1) str += "()"
         else for (var i = 1; i < a.children.length; i++) {
             str += doConvert(a.children[i])
         }
-        str += " in\n (s := st; match ret with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn)"
+        str += " in\n (s := st__; match ret__ with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn))"
         return str
     }
     if (a.children[0].attributes.member_name == "push") {
@@ -398,7 +399,7 @@ function makeEventType(lst) {
     str += "type event ="
     if (lst.length == 0) str += " unit\n"
     lst.forEach(ev => {
-        str += "\n|" + ev.attributes.name + " : " + ev.children[0].children.map(a => a.attributes.type).join(" -> ") + " -> event"
+        str += "\n  | " + ev.attributes.name + " : " + ev.children[0].children.map(a => convertType(a)).join(" -> ") + " -> event"
     })
     return str
 }

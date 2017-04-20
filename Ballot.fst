@@ -64,11 +64,13 @@ noeq type struct_Proposal = {
 name : UInt256.t;
 voteCount : UInt256.t;
 }
+type event = unit
 
 
 
 (* Storage state *)
 noeq type state = {
+events: list event;
 chairperson : UInt160.t;
 voters : UInt160.t -> struct_Voter;
 proposals : list (struct_Proposal);

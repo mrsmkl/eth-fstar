@@ -8,6 +8,7 @@ open FStar.UInt
 type msg = {
   sender : UInt160.t;
   value: UInt256.t;
+  now : UInt256.t;
 }
 
 val set : #key:eqtype -> #vl:Type -> (key -> vl) -> key -> vl -> (key -> vl)
