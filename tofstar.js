@@ -146,7 +146,7 @@ convert.Identifier = a => {
 }
 
 convert.IndexAccess = function (a) {
-    console.log(a)
+    // console.log(a)
     if (a.children[0].attributes.type.match(/\[\] (storage ref|memory)/)) {
         return "(list_nth (" + doConvert(a.children[0]) + ") (" + doConvert(a.children[1]) + "))"
     }
@@ -167,6 +167,8 @@ var op_table = {
     "uint256 -": "UInt256.sub_mod",
     "uint256 <": "UInt256.lt",
     "uint256 >": "UInt256.gt",
+    "uint256 <=": "UInt256.le",
+    "uint256 >=": "UInt256.ge",
     
     "uint8 +=": "UInt8.add_mod",
     "uint8 -=": "UInt8.sub_mod",
@@ -180,8 +182,11 @@ var op_table = {
     "uint +": "UInt256.add_mod",
     "uint -": "UInt256.sub_mod",
     "uint <": "UInt256.lt",
+    
     "bool &&": "bool_and",
     "bool ||": "bool_or",
+    "bool !": "op_Negation",
+    
     "uint256 !=": "op_disEquality",
     "address !=": "op_disEquality",
     "address ==": "op_Equality",
@@ -232,8 +237,6 @@ function makeSetter(a, expr) {
     console.log(a)
 }
 
-
-
 convert.Assignment = function (a) {
     var v
 
@@ -265,10 +268,12 @@ var conversion = {
     "address uint256": "uint_to_address"
 }
 
-
 convert.FunctionCall = function (a) {
     if (a.children[0].attributes.member_name == "transfer") {
         return "()"
+    }
+    if (a.children[0].attributes.member_name == "send") {
+        return "false"
     }
     if (a.children[0].name == "ElementaryTypeNameExpression") {
         var t = a.children[0].attributes.value + " " + guessType(a.children[1].attributes.type)
@@ -377,18 +382,43 @@ function makeStructConstructor(a) {
     return str
 }
 
+function makeEventConstructor(a) {
+    var vars = a.children[0].children
+    var str = ""
+    str += "val method_" + a.attributes.name + " : msg -> state -> " + vars.map(a => convertType(a)).join(" -> ") + " -> ML (option unit * state)\n"
+    // generate body
+    str += "let method_" + a.attributes.name + " msg state " + vars.map(a => a.attributes.name).join(" ") + " =\n" +
+        " let state = {state with events = " + a.attributes.name + " " + vars.map(a => a.attributes.name).join(" ") + " :: state.events} in\n"
+    str += "(Some (), state)\n\n"
+    return str
+}
+
+function makeEventType(lst) {
+    var str = ""
+    str += "type event ="
+    if (lst.length == 0) str += " unit\n"
+    lst.forEach(ev => {
+        str += "\n|" + ev.attributes.name + " : " + ev.children[0].children.map(a => a.attributes.type).join(" -> ") + " -> event"
+    })
+    return str
+}
+
 convert.ContractDefinition = function (c) {
-    // console.log(c)
+    console.log(c)
     getChildren(c).filter(a => a.name == "BinaryOperation" || a.name == "Assignment").forEach(checkTypes)
     var str = ""
     str += "module " + c.attributes.name + "\n" + preamble
     // structs
     c.children.filter(a => a.name == "StructDefinition").forEach(a => str += makeStruct(a))
+    // events
+    var evs = c.children.filter(a => a.name == "EventDefinition")
+    str += makeEventType(evs)
     // find variables
     var vars = c.children.filter(a => a.name == "VariableDeclaration")
     str += "\n\n\n(* Storage state *)\n"
-    str += "noeq type state = {\n" + vars.map(convertVar).join("\n") + "\n}\n"
+    str += "noeq type state = {\n" + "events: list event;\n" + vars.map(convertVar).join("\n") + "\n}\n"
     c.children.filter(a => a.name == "StructDefinition").forEach(a => str += makeStructConstructor(a))
+    c.children.filter(a => a.name == "EventDefinition").forEach(a => str += makeEventConstructor(a))
     // literals
     getChildren(c).filter(a => a.name == "Literal").forEach(l => str += prepareLiteral(l) + "\n")
     // find methods
