@@ -10,7 +10,9 @@ open FStar.UInt
 
 type msg = {
   sender : UInt160.t;
+  this : UInt160.t;
   value: UInt256.t;
+  now : UInt256.t;
 }
 
 val set : #key:eqtype -> #vl:Type -> (key -> vl) -> key -> vl -> (key -> vl)
@@ -38,6 +40,11 @@ val list_set : #a:Type -> list a -> UInt256.t -> a -> ML (list a)
 let list_set #a lst n elem =
   let n = UInt256.v n in
   List.mapi (fun i a -> if i = n then elem else a) lst 
+
+val update_balance : UInt160.t -> UInt160.t -> UInt256.t -> (UInt160.t -> UInt256.t) -> (UInt160.t -> UInt256.t)
+let update_balance sender addr v bal x =
+   if addr = x then UInt256.add_mod v (bal x) else
+   if addr = sender then UInt256.sub_mod (bal x) v else bal x
 
 exception SolidityThrow
 exception SolidityReturn
@@ -70,7 +77,7 @@ type event = unit
 
 (* Storage state *)
 noeq type state = {
-events: list event;
+events__: list event; balance__ : UInt160.t -> UInt256.t;
 chairperson : UInt160.t;
 voters : UInt160.t -> struct_Voter;
 proposals : list (struct_Proposal);
@@ -99,6 +106,9 @@ let uint256_0 = UInt256.uint_to_t (0)
 
 
 
+assume type inv : state -> Type
+assume val call_env : state -> state
+assume val call_spec : st:state -> Lemma (requires inv st) (ensures inv (call_env st))
 
 
 
@@ -115,9 +125,9 @@ s := {!s with voters = set (!s).voters ((!s).chairperson) (base) };
 let i = alloc (uint256_0) in
 let rec loop_66 () : ML unit =
 if not (UInt256.lt (!i) (list_length (proposalNames))) then () else (
-s := {!s with proposals = ((!s).proposals @ [ let (ret,st) = method_Proposal msg !s
+s := {!s with proposals = ((!s).proposals @ [ (let (ret__,st__) = method_Proposal msg !s
 (list_nth (proposalNames) (!i))uint256_0 in
- (s := st; match ret with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn)]) };i := UInt256.add_mod (!i) (uint256_1);loop_66 ()) in loop_66();
+ (s := st__; match ret__ with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn))]) };i := UInt256.add_mod (!i) (uint256_1);loop_66 ()) in loop_66();
 (!ret, !s)
 with SolidityReturn -> (!ret, !s)
 
@@ -223,8 +233,8 @@ let method_winnerName msg state () =
 let s = alloc state in
 let ret = alloc None in
 try
-ret := Some(((list_nth ((!s).proposals) (let (ret,st) = method_winningProposal msg !s
+ret := Some(((list_nth ((!s).proposals) ((let (ret__,st__) = method_winningProposal msg !s
 () in
- (s := st; match ret with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn)))).name); raise SolidityReturn;
+ (s := st__; match ret__ with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn))))).name); raise SolidityReturn;
 (!ret, !s)
 with SolidityReturn -> (!ret, !s)

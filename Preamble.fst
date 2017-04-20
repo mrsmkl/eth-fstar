@@ -7,6 +7,7 @@ open FStar.UInt
 
 type msg = {
   sender : UInt160.t;
+  this : UInt160.t;
   value: UInt256.t;
   now : UInt256.t;
 }
@@ -36,6 +37,11 @@ val list_set : #a:Type -> list a -> UInt256.t -> a -> ML (list a)
 let list_set #a lst n elem =
   let n = UInt256.v n in
   List.mapi (fun i a -> if i = n then elem else a) lst 
+
+val update_balance : UInt160.t -> UInt160.t -> UInt256.t -> (UInt160.t -> UInt256.t) -> (UInt160.t -> UInt256.t)
+let update_balance sender addr v bal x =
+   if addr = x then UInt256.add_mod v (bal x) else
+   if addr = sender then UInt256.sub_mod (bal x) v else bal x
 
 exception SolidityThrow
 exception SolidityReturn

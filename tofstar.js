@@ -271,17 +271,28 @@ var conversion = {
 
 convert.FunctionCall = function (a) {
     if (a.children[0].attributes.member_name == "transfer") {
-        return "()"
+        var str = ""
+        str += "let value__ = " + doConvert(a.children[1]) + " in\n"
+        str += "let recv__ = " + doConvert(a.children[0].children[0]) + " in\n"
+        str += "if UInt256.lt ((!s).balance__ msg.this) value__ then raise SolidityThrow else\n"
+        str += "( s := {!s with balance__ = update_balance msg.this recv__ value__ (!s).balance__};\n"
+        str += "  s := call_env !s )"
+        return "(" + str + ")"
     }
     if (a.children[0].attributes.member_name == "send") {
-        return "false"
+        var str = ""
+        str += "let value__ = " + doConvert(a.children[1]) + " in\n"
+        str += "let recv__ = " + doConvert(a.children[0].children[0]) + " in\n"
+        str += "if UInt256.lt ((!s).balance__ msg.this) value__ then false else\n"
+        str += "( s := {!s with balance__ = update_balance msg.this recv__ value__ (!s).balance__};\n"
+        str += "  s := call_env !s; true)"
+        return "(" + str + ")"
     }
     if (a.children[0].name == "ElementaryTypeNameExpression") {
         var t = a.children[0].attributes.value + " " + guessType(a.children[1].attributes.type)
         return conversion[t] + " " + doConvert(a.children[1])
     }
     if (a.children[0].name == "Identifier") {
-        console.log(a)
         var str = ""
         str += "(let (ret__,st__) = method_" + a.children[0].attributes.value + " msg !s\n"
         if (a.children.length == 1) str += "()"
@@ -389,7 +400,7 @@ function makeEventConstructor(a) {
     str += "val method_" + a.attributes.name + " : msg -> state -> " + vars.map(a => convertType(a)).join(" -> ") + " -> ML (option unit * state)\n"
     // generate body
     str += "let method_" + a.attributes.name + " msg state " + vars.map(a => a.attributes.name).join(" ") + " =\n" +
-        " let state = {state with events = " + a.attributes.name + " " + vars.map(a => a.attributes.name).join(" ") + " :: state.events} in\n"
+        " let state = {state with events__ = " + a.attributes.name + " " + vars.map(a => a.attributes.name).join(" ") + " :: state.events__} in\n"
     str += "(Some (), state)\n\n"
     return str
 }
@@ -405,7 +416,7 @@ function makeEventType(lst) {
 }
 
 convert.ContractDefinition = function (c) {
-    console.log(c)
+    // console.log(c)
     getChildren(c).filter(a => a.name == "BinaryOperation" || a.name == "Assignment").forEach(checkTypes)
     var str = ""
     str += "module " + c.attributes.name + "\n" + preamble
@@ -417,11 +428,16 @@ convert.ContractDefinition = function (c) {
     // find variables
     var vars = c.children.filter(a => a.name == "VariableDeclaration")
     str += "\n\n\n(* Storage state *)\n"
-    str += "noeq type state = {\n" + "events: list event;\n" + vars.map(convertVar).join("\n") + "\n}\n"
+    str += "noeq type state = {\n" + "events__: list event; balance__ : UInt160.t -> UInt256.t;\n" + vars.map(convertVar).join("\n") + "\n}\n"
     c.children.filter(a => a.name == "StructDefinition").forEach(a => str += makeStructConstructor(a))
     c.children.filter(a => a.name == "EventDefinition").forEach(a => str += makeEventConstructor(a))
     // literals
     getChildren(c).filter(a => a.name == "Literal").forEach(l => str += prepareLiteral(l) + "\n")
+    ////////////////
+    str += "assume type inv : state -> Type\n"
+    str += "assume val call_env : state -> state\n"
+    str += "assume val call_spec : st:state -> Lemma (requires inv st) (ensures inv (call_env st))\n"
+
     // find methods
     var lst = c.children.filter(a => a.name == "FunctionDefinition")
     str += "\n\n\n(* Contract methods *)\n"

@@ -10,6 +10,7 @@ open FStar.UInt
 
 type msg = {
   sender : UInt160.t;
+  this : UInt160.t;
   value: UInt256.t;
   now : UInt256.t;
 }
@@ -40,6 +41,11 @@ let list_set #a lst n elem =
   let n = UInt256.v n in
   List.mapi (fun i a -> if i = n then elem else a) lst 
 
+val update_balance : UInt160.t -> UInt160.t -> UInt256.t -> (UInt160.t -> UInt256.t) -> (UInt160.t -> UInt256.t)
+let update_balance sender addr v bal x =
+   if addr = x then UInt256.add_mod v (bal x) else
+   if addr = sender then UInt256.sub_mod (bal x) v else bal x
+
 exception SolidityThrow
 exception SolidityReturn
 exception SolidityBadReturn
@@ -56,13 +62,13 @@ val bool_or : bool -> bool -> Tot bool
 let bool_or a b = a || b
 
 type event =
-|HighestBidIncreased : UInt160.t -> UInt256.t -> event
-|AuctionEnded : UInt160.t -> UInt256.t -> event
+  | HighestBidIncreased : UInt160.t -> UInt256.t -> event
+  | AuctionEnded : UInt160.t -> UInt256.t -> event
 
 
 (* Storage state *)
 noeq type state = {
-events: list event;
+events__: list event; balance__ : UInt160.t -> UInt256.t;
 beneficiary : UInt160.t;
 auctionStart : UInt256.t;
 biddingTime : UInt256.t;
@@ -73,12 +79,12 @@ ended : bool;
 }
 val method_HighestBidIncreased : msg -> state -> UInt160.t -> UInt256.t -> ML (option unit * state)
 let method_HighestBidIncreased msg state bidder amount =
- let state = {state with events = HighestBidIncreased bidder amount :: state.events} in
+ let state = {state with events__ = HighestBidIncreased bidder amount :: state.events__} in
 (Some (), state)
 
 val method_AuctionEnded : msg -> state -> UInt160.t -> UInt256.t -> ML (option unit * state)
 let method_AuctionEnded msg state winner amount =
- let state = {state with events = AuctionEnded winner amount :: state.events} in
+ let state = {state with events__ = AuctionEnded winner amount :: state.events__} in
 (Some (), state)
 
 let address_0 = UInt160.uint_to_t (0)
@@ -87,6 +93,9 @@ let uint256_0 = UInt256.uint_to_t (0)
 
 
 
+assume type inv : state -> Type
+assume val call_env : state -> state
+assume val call_spec : st:state -> Lemma (requires inv st) (ensures inv (call_env st))
 
 
 
@@ -138,7 +147,11 @@ let amount = alloc ((get (!s).pendingReturns ((msg).sender))) in
 
 if UInt256.gt (!amount) (uint256_0)
 then (s := {!s with pendingReturns = set (!s).pendingReturns ((msg).sender) (uint256_0) };
-if op_Negation (false)
+if op_Negation ((let value__ = !amount in
+let recv__ = (msg).sender in
+if UInt256.lt ((!s).balance__ msg.this) value__ then false else
+( s := {!s with balance__ = update_balance msg.this recv__ value__ (!s).balance__};
+  s := call_env !s; true)))
 then (s := {!s with pendingReturns = set (!s).pendingReturns ((msg).sender) (!amount) };
 ret := Some(false); raise SolidityReturn; ())
 else ();
@@ -167,7 +180,11 @@ s := {!s with ended = (true) };
 (let (ret__,st__) = method_AuctionEnded msg !s
 (!s).highestBidder(!s).highestBid in
  (s := st__; match ret__ with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn));
-if op_Negation (false)
+if op_Negation ((let value__ = (!s).highestBid in
+let recv__ = (!s).beneficiary in
+if UInt256.lt ((!s).balance__ msg.this) value__ then false else
+( s := {!s with balance__ = update_balance msg.this recv__ value__ (!s).balance__};
+  s := call_env !s; true)))
 then (raise SolidityThrow; ())
 else ();
 
