@@ -30,6 +30,21 @@ let address_to_uint a =
 val uint_to_address : UInt256.t -> UInt160.t
 let uint_to_address a = UInt160.uint_to_t (UInt.to_uint_t 160 (UInt256.v a))
 
+val default_address : UInt160.t
+let default_address = UInt160.uint_to_t 0
+
+val default_uint256 : UInt256.t
+let default_uint256 = UInt256.uint_to_t 0
+
+val default_uint : UInt256.t
+let default_uint = UInt256.uint_to_t 0
+
+val default_bytes32 : UInt256.t
+let default_bytes32 = UInt256.uint_to_t 0
+
+val default_bool : bool
+let default_bool = false
+
 val list_length : #a:Type -> list a -> UInt256.t
 let list_length #a lst = UInt256.uint_to_t (UInt.to_uint_t 256 (List.length lst))
 
@@ -67,10 +82,22 @@ voted : bool;
 delegate : UInt160.t;
 vote : UInt256.t;
 }
+let default_Voter = {
+weight = default_uint;
+voted = default_bool;
+delegate = default_address;
+vote = default_uint;
+}
+
 noeq type struct_Proposal = {
 name : UInt256.t;
 voteCount : UInt256.t;
 }
+let default_Proposal = {
+name = default_bytes32;
+voteCount = default_uint;
+}
+
 type event = unit
 
 
@@ -81,6 +108,12 @@ events__: list event; balance__ : UInt160.t -> UInt256.t;
 chairperson : UInt160.t;
 voters : UInt160.t -> struct_Voter;
 proposals : list (struct_Proposal);
+}
+let default_state = {
+events__ = []; balance__ = (fun x -> default_uint);
+chairperson = default_address;
+voters = (fun x -> default_Voter);
+proposals = [];
 }
 val method_Voter : msg -> state -> UInt256.t -> bool -> UInt160.t -> UInt256.t -> ML (option (struct_Voter) * state)
 let method_Voter msg state weight voted delegate vote = (Some ({

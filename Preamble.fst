@@ -27,6 +27,21 @@ let address_to_uint a =
 val uint_to_address : UInt256.t -> UInt160.t
 let uint_to_address a = UInt160.uint_to_t (UInt.to_uint_t 160 (UInt256.v a))
 
+val default_address : UInt160.t
+let default_address = UInt160.uint_to_t 0
+
+val default_uint256 : UInt256.t
+let default_uint256 = UInt256.uint_to_t 0
+
+val default_uint : UInt256.t
+let default_uint = UInt256.uint_to_t 0
+
+val default_bytes32 : UInt256.t
+let default_bytes32 = UInt256.uint_to_t 0
+
+val default_bool : bool
+let default_bool = false
+
 val list_length : #a:Type -> list a -> UInt256.t
 let list_length #a lst = UInt256.uint_to_t (UInt.to_uint_t 256 (List.length lst))
 

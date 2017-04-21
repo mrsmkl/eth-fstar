@@ -46,6 +46,32 @@ convert.Mapping = function (m) {
     return doConvert(m.children[0]) + " -> " + doConvert(m.children[1])
 }
 
+var defaults = {}
+
+function makeDefault(part) {
+    if (defaults[part.name]) return defaults[part.name](part)
+    console.log(part.name)
+    console.log(part)
+    return ""
+}
+
+defaults.ElementaryTypeName = function (m) {
+    return "default_" + m.attributes.name
+}
+
+defaults.UserDefinedTypeName = function (m) {
+    return "default_" + m.attributes.name
+}
+
+defaults.ArrayTypeName = function (m) {
+    return "[]"
+}
+
+defaults.Mapping = function (m) {
+    return "(fun x -> " + makeDefault(m.children[1]) + ")"
+}
+
+
 convert.IfStatement = function (a) {
     var str = ""
     str += "if " + doConvert(a.children[0]) + "\n"
@@ -380,7 +406,10 @@ function convertVar(v) {
 
 function makeStruct(a) {
     var vars = a.children.filter(a => a.name == "VariableDeclaration")
-    return "noeq type struct_" + a.attributes.name + " = {\n" + vars.map(convertVar).join("\n") + "\n}\n"
+    var str = ""
+    str += "noeq type struct_" + a.attributes.name + " = {\n" + vars.map(convertVar).join("\n") + "\n}\n"
+    str += "let default_" +  a.attributes.name + " = {\n" + vars.map(a => a.attributes.name + " = " + makeDefault(a.children[0]) + ";").join("\n") + "\n}\n\n"
+    return str
 }
 
 function makeStructConstructor(a) {
@@ -429,6 +458,9 @@ convert.ContractDefinition = function (c) {
     var vars = c.children.filter(a => a.name == "VariableDeclaration")
     str += "\n\n\n(* Storage state *)\n"
     str += "noeq type state = {\n" + "events__: list event; balance__ : UInt160.t -> UInt256.t;\n" + vars.map(convertVar).join("\n") + "\n}\n"
+    str += "let default_state = {\n"
+    str += "events__ = []; balance__ = (fun x -> default_uint);\n"
+    str += vars.map(a => a.attributes.name + " = " + makeDefault(a.children[0]) + ";").join("\n") + "\n}\n"
     c.children.filter(a => a.name == "StructDefinition").forEach(a => str += makeStructConstructor(a))
     c.children.filter(a => a.name == "EventDefinition").forEach(a => str += makeEventConstructor(a))
     // literals
