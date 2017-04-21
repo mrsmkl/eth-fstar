@@ -12,12 +12,12 @@ contract Pyramid {
     function doInvite(address addr) {
         if (invite[addr] != 0) throw;
         invite[addr] = msg.sender;
-        invites_left[msg.sender] -= 1;
+        invites_left[msg.sender]--;
     }
     function cancelInvite(address addr) {
         if (joined[addr] || invite[addr] != msg.sender) throw;
         invite[addr] = 0;
-        invites_left[msg.sender] += 1;
+        invites_left[msg.sender]++;
     }
     function pull() {
         uint sum = balance[msg.sender];
@@ -32,13 +32,10 @@ contract Pyramid {
             parent[msg.sender] = par;
             joined[msg.sender] = true;
             invites_left[msg.sender] = 3;
-            for (uint256 i = 0; i < 10; i += 1) {
+            for (uint256 i = 0; i < 10; i++) {
                 balance[par] += calc(i);
                 par = parent[par];
             }
-            /* uint256 i = 0;
-            balance[par] += calc(i); par = parent[par]; i += 1;
-            balance[par] += calc(i); par = parent[par]; i += 1; */
         }
     }
 }

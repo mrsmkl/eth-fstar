@@ -39,6 +39,18 @@ let default_uint256 = UInt256.uint_to_t 0
 val default_uint : UInt256.t
 let default_uint = UInt256.uint_to_t 0
 
+let one_uint = UInt256.uint_to_t 1
+let one_uint256 = UInt256.uint_to_t 1
+
+val uint256_incr : UInt256.t -> UInt256.t
+let uint256_incr x = UInt256.add_mod x (UInt256.uint_to_t 1)
+
+val uint256_decr : UInt256.t -> UInt256.t
+let uint256_decr x = UInt256.sub_mod x (UInt256.uint_to_t 1)
+
+val default_bytes32 : UInt256.t
+let default_bytes32 = UInt256.uint_to_t 0
+
 val default_bool : bool
 let default_bool = false
 
@@ -96,16 +108,13 @@ joined = (fun x -> default_bool);
 }
 let uint256_10 = UInt256.uint_to_t (10)
 let address_0 = UInt160.uint_to_t (0)
-let uint256_1 = UInt256.uint_to_t (1)
-
 
 let uint256_0 = UInt256.uint_to_t (0)
-
+let uint256_1 = UInt256.uint_to_t (1)
 
 
 
 let uint256_3 = UInt256.uint_to_t (3)
-
 
 
 assume type inv : state -> Type
@@ -135,7 +144,7 @@ then (raise SolidityThrow; ())
 else ();
 
 s := {!s with invite = set (!s).invite (addr) ((msg).sender) };
-s := {!s with invites_left = set (!s).invites_left ((msg).sender) (UInt256.sub_mod ((get (!s).invites_left ((msg).sender))) (uint256_1)) };
+s := {!s with invites_left = set (!s).invites_left ((msg).sender) (uint256_decr ((get (!s).invites_left ((msg).sender)))) };
 (!ret, !s)
 with SolidityReturn -> (!ret, !s)
 
@@ -150,7 +159,7 @@ then (raise SolidityThrow; ())
 else ();
 
 s := {!s with invite = set (!s).invite (addr) (address_0) };
-s := {!s with invites_left = set (!s).invites_left ((msg).sender) (UInt256.add_mod ((get (!s).invites_left ((msg).sender))) (uint256_1)) };
+s := {!s with invites_left = set (!s).invites_left ((msg).sender) (uint256_incr ((get (!s).invites_left ((msg).sender)))) };
 (!ret, !s)
 with SolidityReturn -> (!ret, !s)
 
@@ -192,12 +201,12 @@ s := {!s with parent = set (!s).parent ((msg).sender) (!par) };
 s := {!s with joined = set (!s).joined ((msg).sender) (true) };
 s := {!s with invites_left = set (!s).invites_left ((msg).sender) (uint256_3) };
 let i = alloc (uint256_0) in
-let rec loop_199 () : ML unit =
+let rec loop_196 () : ML unit =
 if not (UInt256.lt (!i) (uint256_10)) then () else (
 s := {!s with balance = set (!s).balance (!par) (UInt256.add_mod ((get (!s).balance (!par))) ((let (ret__,st__) = method_calc msg !s
 !i in
  (s := st__; match ret__ with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn)))) };
-par := (get (!s).parent (!par));i := UInt256.add_mod (!i) (uint256_1);loop_199 ()) in loop_199(); ())
+par := (get (!s).parent (!par));i := uint256_incr (!i);loop_196 ()) in loop_196(); ())
 else ();
 
 (!ret, !s)

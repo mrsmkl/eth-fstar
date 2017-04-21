@@ -196,6 +196,8 @@ var op_table = {
     "uint256 >": "UInt256.gt",
     "uint256 <=": "UInt256.lte",
     "uint256 >=": "UInt256.gte",
+    "uint256 ++": "uint256_incr",
+    "uint256 --": "uint256_decr",
     
     "uint8 +=": "UInt8.add_mod",
     "uint8 -=": "UInt8.sub_mod",
@@ -279,6 +281,9 @@ convert.BinaryOperation = function (a) {
 }
 
 convert.UnaryOperation = function (a) {
+    if (a.attributes.operator == "++" || a.attributes.operator == "--") {
+        return makeSetter(a.children[0], get_op(a) + " (" + doConvert(a.children[0]) + ")")
+    }
     return get_op(a) + " (" + doConvert(a.children[0]) + ")"
 }
 

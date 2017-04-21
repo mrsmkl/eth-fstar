@@ -36,6 +36,15 @@ let default_uint256 = UInt256.uint_to_t 0
 val default_uint : UInt256.t
 let default_uint = UInt256.uint_to_t 0
 
+let one_uint = UInt256.uint_to_t 1
+let one_uint256 = UInt256.uint_to_t 1
+
+val uint256_incr : UInt256.t -> UInt256.t
+let uint256_incr x = UInt256.add_mod x (UInt256.uint_to_t 1)
+
+val uint256_decr : UInt256.t -> UInt256.t
+let uint256_decr x = UInt256.sub_mod x (UInt256.uint_to_t 1)
+
 val default_bytes32 : UInt256.t
 let default_bytes32 = UInt256.uint_to_t 0
 

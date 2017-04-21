@@ -39,6 +39,15 @@ let default_uint256 = UInt256.uint_to_t 0
 val default_uint : UInt256.t
 let default_uint = UInt256.uint_to_t 0
 
+let one_uint = UInt256.uint_to_t 1
+let one_uint256 = UInt256.uint_to_t 1
+
+val uint256_incr : UInt256.t -> UInt256.t
+let uint256_incr x = UInt256.add_mod x (UInt256.uint_to_t 1)
+
+val uint256_decr : UInt256.t -> UInt256.t
+let uint256_decr x = UInt256.sub_mod x (UInt256.uint_to_t 1)
+
 val default_bytes32 : UInt256.t
 let default_bytes32 = UInt256.uint_to_t 0
 
@@ -137,8 +146,6 @@ let uint256_0 = UInt256.uint_to_t (0)
 
 
 
-
-
 assume type inv : state -> Type
 assume val call_env : state -> state
 assume val call_spec : st:state -> Lemma (requires inv st) (ensures inv (call_env st))
@@ -156,11 +163,11 @@ let base = (get (!s).voters ((!s).chairperson))in
 let base = {base with weight = (uint256_1) } in
 s := {!s with voters = set (!s).voters ((!s).chairperson) (base) };
 let i = alloc (uint256_0) in
-let rec loop_66 () : ML unit =
+let rec loop_65 () : ML unit =
 if not (UInt256.lt (!i) (list_length (proposalNames))) then () else (
 s := {!s with proposals = ((!s).proposals @ [ (let (ret__,st__) = method_Proposal msg !s
 (list_nth (proposalNames) (!i))uint256_0 in
- (s := st__; match ret__ with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn))]) };i := UInt256.add_mod (!i) (uint256_1);loop_66 ()) in loop_66();
+ (s := st__; match ret__ with Some x -> x | None -> (* assert False ; *) raise SolidityBadReturn))]) };i := uint256_incr (!i);loop_65 ()) in loop_65();
 (!ret, !s)
 with SolidityReturn -> (!ret, !s)
 
@@ -198,13 +205,13 @@ if op_Equality (!to) ((msg).sender)
 then (raise SolidityThrow; ())
 else ();
 
-let rec loop_141 () : ML unit =
+let rec loop_140 () : ML unit =
 if not (op_disEquality (((get (!s).voters (!to))).delegate) (uint_to_address uint256_0)) then () else (
 to := ((get (!s).voters (!to))).delegate;
 if op_Equality (!to) ((msg).sender)
 then (raise SolidityThrow; ())
 else ();
-loop_141 ()) in loop_141();
+loop_140 ()) in loop_140();
 sender := { !sender with voted = true };
 sender := { !sender with delegate = !to };
 let delegate = alloc ((get (!s).voters (!to))) in
@@ -249,13 +256,13 @@ let winningProposal = alloc (uint256_0) in
 let winningVoteCount = alloc (uint256_0) in
 
 let p = alloc (uint256_0) in
-let rec loop_264 () : ML unit =
+let rec loop_262 () : ML unit =
 if not (UInt256.lt (!p) (list_length ((!s).proposals))) then () else (
 if UInt256.gt (((list_nth ((!s).proposals) (!p))).voteCount) (!winningVoteCount)
 then (winningVoteCount := ((list_nth ((!s).proposals) (!p))).voteCount;
 winningProposal := !p; ())
 else ();
-p := UInt256.add_mod (!p) (uint256_1);loop_264 ()) in loop_264();
+p := uint256_incr (!p);loop_262 ()) in loop_262();
 ret := Some(!winningProposal); raise SolidityReturn;
 (!ret, !s)
 with SolidityReturn -> (!ret, !s)

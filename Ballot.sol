@@ -36,7 +36,7 @@ contract Ballot {
         // For each of the provided proposal names,
         // create a new proposal object and add it
         // to the end of the array.
-        for (uint i = 0; i < proposalNames.length; i += 1) {
+        for (uint i = 0; i < proposalNames.length; i++) {
             // `Proposal({...})` creates a temporary
             // Proposal object and `proposals.push(...)`
             // appends it to the end of `proposals`.
@@ -127,7 +127,7 @@ contract Ballot {
     {
         uint winningProposal = 0;
         uint winningVoteCount = 0;
-        for (uint p = 0; p < proposals.length; p += 1) {
+        for (uint p = 0; p < proposals.length; p ++) {
             if (proposals[p].voteCount > winningVoteCount) {
                 winningVoteCount = proposals[p].voteCount;
                 winningProposal = p;
